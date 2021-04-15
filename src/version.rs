@@ -1,3 +1,4 @@
+use crate::Error;
 use nom::{
     branch::alt,
     bytes::complete::tag_no_case,
@@ -8,7 +9,7 @@ use nom::{
     Finish, IResult, Parser,
 };
 
-/// Prerelease segment
+/// Prerelease segment.
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Ord)]
 pub enum Pre {
     A(u64),
@@ -27,7 +28,7 @@ impl std::fmt::Display for Pre {
     }
 }
 
-/// Release segment
+/// Release segment.
 #[derive(Clone, Debug)]
 pub struct Release {
     components: Vec<u64>,
@@ -100,10 +101,15 @@ impl Ord for Release {
     }
 }
 
+/// An alphanumeric local version component.
 #[derive(Clone, Debug)]
 pub struct Alphanumeric(String);
 
 impl Alphanumeric {
+    /// Returns the local version component only if the string contains ASCII alphanumeric
+    /// characters, and contains at least one alphabetic character.
+    ///
+    /// Otherwise, returns the original string.
     pub fn new(s: String) -> Result<Self, String> {
         if s.chars().all(|c| c.is_ascii_alphanumeric())
             && s.chars().any(|c| c.is_ascii_alphabetic())
@@ -152,7 +158,7 @@ impl Ord for Alphanumeric {
     }
 }
 
-/// A local version component
+/// A local version component.
 #[derive(Clone, Debug, PartialEq, PartialOrd, Eq, Ord)]
 pub enum Local {
     Alphanumeric(Alphanumeric),
@@ -168,9 +174,9 @@ impl std::fmt::Display for Local {
     }
 }
 
-/// A PEP 440 version
+/// A PEP 440 version.
 ///
-/// This type represents a normalized version, and `Display`ing it renders the normalized version.
+/// `Display`ing this type renders the normalized version.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Version {
     pub epoch: u64,
@@ -182,8 +188,8 @@ pub struct Version {
 }
 
 impl Version {
-    /// Parse a version, returning if it was in the canonical format.
-    pub fn check_parse(s: &str) -> Result<(bool, Self), nom::error::Error<String>> {
+    /// Parse a version, also returning if it was in the canonical format.
+    pub fn check_parse(s: &str) -> Result<(bool, Self), Error> {
         match all_consuming(version)(s).finish() {
             Err(nom::error::Error { input, code }) => Err(nom::error::Error {
                 input: input.to_string(),
@@ -194,7 +200,7 @@ impl Version {
     }
 
     /// Parse a version, accepting non-canonical input.
-    pub fn parse(s: &str) -> Result<Self, nom::error::Error<String>> {
+    pub fn parse(s: &str) -> Result<Self, Error> {
         Self::check_parse(s).map(|(_, v)| v)
     }
 }
@@ -266,7 +272,7 @@ impl std::fmt::Display for Version {
 }
 
 impl std::str::FromStr for Version {
-    type Err = nom::error::Error<String>;
+    type Err = Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Self::parse(s)
