@@ -425,7 +425,7 @@ mod test {
     use super::Version;
 
     /// Example versions copied from PEP 440
-    const EXAMPLE: &'static [&'static str] = &[
+    const EXAMPLE: &[&str] = &[
         "1.0.dev456",
         "1.0a1",
         "1.0a2.dev456",
@@ -571,7 +571,7 @@ mod test {
             .map(Result::unwrap);
 
         let mut left = versions.next().unwrap();
-        while let Some(right) = versions.next() {
+        for right in versions {
             println!("{} < {}", left, right);
             assert!(left < right);
             left = right;
