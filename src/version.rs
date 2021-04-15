@@ -1,9 +1,9 @@
 use nom::{
     branch::alt,
     bytes::complete::tag_no_case,
-    character::complete::{alphanumeric1, char, digit1, one_of},
+    character::complete::{alphanumeric1, char, digit1, one_of, satisfy},
     combinator::{all_consuming, map_res, opt},
-    multi::{separated_list0, separated_list1},
+    multi::{many0_count, separated_list0, separated_list1},
     sequence::{preceded, terminated, tuple},
     Finish, IResult, Parser,
 };
@@ -336,7 +336,7 @@ fn local(s: &str) -> IResult<&str, Vec<Local>> {
     opt(preceded(
         char('+'),
         separated_list0(
-            char('.'),
+            one_of(".-_"),
             alt((
                 digit.map(Local::Numeric),
                 alphanumeric1.map(|s: &str| Local::Alphanumeric(Alphanumeric(s.to_string()))),
@@ -347,26 +347,34 @@ fn local(s: &str) -> IResult<&str, Vec<Local>> {
     .parse(s)
 }
 
+fn whitespace(s: &str) -> IResult<&str, ()> {
+    many0_count(satisfy(|c| c.is_whitespace()))
+        .map(std::mem::drop)
+        .parse(s)
+}
+
 // parse a version
 fn version(s: &str) -> IResult<&str, (bool, Version)> {
     let v = opt(char('v')).map(|x| x.is_none());
-    tuple((v, epoch, release, pre, post, dev, local))
-        .map(
-            |(c0, epoch, release, (c1, pre), (c2, post), (c3, dev), local)| {
-                (
-                    c0 && c1 && c2 && c3,
-                    Version {
-                        epoch,
-                        release,
-                        pre,
-                        post,
-                        dev,
-                        local,
-                    },
-                )
-            },
-        )
-        .parse(s)
+    tuple((
+        whitespace, v, epoch, release, pre, post, dev, local, whitespace,
+    ))
+    .map(
+        |(_, c0, epoch, release, (c1, pre), (c2, post), (c3, dev), local, _)| {
+            (
+                c0 && c1 && c2 && c3 && local.is_empty(),
+                Version {
+                    epoch,
+                    release,
+                    pre,
+                    post,
+                    dev,
+                    local,
+                },
+            )
+        },
+    )
+    .parse(s)
 }
 
 #[cfg(test)]
@@ -398,7 +406,7 @@ mod test {
     #[test]
     fn round_trip() {
         fn assert_round_trip(s: &str) {
-            assert_eq!(s, format!("{}", Version::parse(s).unwrap()));
+            assert_eq!(format!("{}", Version::parse(s).unwrap()), s);
         }
 
         // Check examples
@@ -413,5 +421,101 @@ mod test {
         assert_round_trip("1+1");
         assert_round_trip("1+x");
         assert_round_trip("1+aaaa.bbbb.cccc.1234.1234.1234");
+    }
+
+    mod normalize {
+        use super::*;
+
+        fn assert_normalize(input: &str, expect: &str) {
+            assert_eq!(format!("{}", Version::parse(input).unwrap()), expect);
+        }
+
+        #[test]
+        fn case_sensitivity() {
+            assert_normalize("1A1", "1a1");
+            assert_normalize("1B1", "1b1");
+            assert_normalize("1RC1", "1rc1");
+            assert_normalize("1.DeV1", "1.dev1");
+            assert_normalize("1.pOsT1", "1.post1");
+        }
+
+        #[test]
+        fn integer_normalization() {
+            assert_normalize(
+                "004!002.000045.123.0030+0010.100.foo010",
+                "4!2.45.123.30+10.100.foo010",
+            );
+        }
+
+        #[test]
+        fn pre_release() {
+            // Pre-release separators
+            assert_normalize("1.1.a1", "1.1a1");
+            assert_normalize("1.5-b_3", "1.5b3");
+            assert_normalize("1.3_rc.4", "1.3rc4");
+
+            // Pre-release spelling
+            assert_normalize("1aLpHa1", "1a1");
+            assert_normalize("1beTa4", "1b4");
+            assert_normalize("5c3", "5rc3");
+            assert_normalize("5C3", "5rc3");
+            assert_normalize("77pRe55", "77rc55");
+            assert_normalize("12prEvIew34", "12rc34");
+
+            // Implicit pre-release number
+            assert_normalize("1.2a", "1.2a0");
+            assert_normalize("1.2b", "1.2b0");
+            assert_normalize("1.2rc", "1.2rc0");
+        }
+
+        #[test]
+        fn post_release() {
+            // Post release separators
+            assert_normalize("1.2-post.4", "1.2.post4");
+            assert_normalize("2.3post_5", "2.3.post5");
+
+            // Post release spelling
+            assert_normalize("1.2.r4", "1.2.post4");
+            assert_normalize("1.2.rev4", "1.2.post4");
+
+            // Implicit post release number
+            assert_normalize("1.2.post", "1.2.post0");
+
+            // Implicit post releases
+            assert_normalize("1.2-54", "1.2.post54");
+        }
+
+        #[test]
+        #[should_panic]
+        fn bad_implicit_post_release() {
+            Version::parse("1.2-").unwrap();
+        }
+
+        #[test]
+        fn development_release() {
+            // Development release separators
+            assert_normalize("1.2dev-5", "1.2.dev5");
+            assert_normalize("1.2-dev_5", "1.2.dev5");
+
+            // Implicit develpment release number
+            assert_normalize("1.2.dev", "1.2.dev0");
+        }
+
+        #[test]
+        fn local_version_segments() {
+            assert_normalize("1+ubuntu-xenial_18", "1+ubuntu.xenial.18");
+        }
+
+        #[test]
+        fn preceding_v_character() {
+            assert_normalize("v1", "1");
+            assert_normalize("v5!5.0rc4", "5!5.0rc4");
+        }
+
+        #[test]
+        fn leading_and_trailing_whitespace() {
+            // 0x0B is \v and 0x0C is \f
+            assert_normalize(" \n  \r    1 \t  \x0C  \x0B ", "1");
+        }
     }
 }
