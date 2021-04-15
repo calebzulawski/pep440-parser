@@ -1,3 +1,5 @@
+//! Parsing the PEP 440 version scheme.
+
 use crate::Error;
 use nom::{
     branch::alt,
