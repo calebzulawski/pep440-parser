@@ -1,0 +1,3 @@
+(function() {var implementors = {};
+implementors["pep440_parser"] = [{"text":"impl <a class=\"trait\" href=\"https://doc.rust-lang.org/nightly/core/marker/trait.Copy.html\" title=\"trait core::marker::Copy\">Copy</a> for <a class=\"enum\" href=\"pep440_parser/version/enum.Pre.html\" title=\"enum pep440_parser::version::Pre\">Pre</a>","synthetic":false,"types":["pep440_parser::version::Pre"]}];
+if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

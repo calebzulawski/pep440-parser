@@ -1,0 +1,1 @@
+initSidebarItems({"enum":[["Local","A local version component"],["Pre","Prerelease segment"]],"struct":[["Alphanumeric",""],["Release","Release segment"],["Version","A PEP 440 version"]]});
