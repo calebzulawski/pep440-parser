@@ -10,7 +10,7 @@ use nom::{
 };
 
 /// Prerelease segment.
-#[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Ord)]
+#[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash)]
 pub enum Pre {
     A(u64),
     B(u64),
@@ -101,6 +101,20 @@ impl Ord for Release {
     }
 }
 
+impl std::hash::Hash for Release {
+    fn hash<H>(&self, state: &mut H)
+    where
+        H: std::hash::Hasher,
+    {
+        state.write_u64(self[0]);
+        for component in self.iter().skip(1).rev().copied() {
+            if component != 0 {
+                state.write_u64(component);
+            }
+        }
+    }
+}
+
 /// An alphanumeric local version component.
 #[derive(Clone, Debug)]
 pub struct Alphanumeric(String);
@@ -158,8 +172,19 @@ impl Ord for Alphanumeric {
     }
 }
 
+impl std::hash::Hash for Alphanumeric {
+    fn hash<H>(&self, state: &mut H)
+    where
+        H: std::hash::Hasher,
+    {
+        for c in self.chars() {
+            state.write_u32(c.to_ascii_lowercase() as u32);
+        }
+    }
+}
+
 /// A local version component.
-#[derive(Clone, Debug, PartialEq, PartialOrd, Eq, Ord)]
+#[derive(Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash)]
 pub enum Local {
     Alphanumeric(Alphanumeric),
     Numeric(u64),
@@ -177,7 +202,7 @@ impl std::fmt::Display for Local {
 /// A PEP 440 version.
 ///
 /// `Display`ing this type renders the normalized version.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Version {
     pub epoch: u64,
     pub release: Release,
