@@ -587,6 +587,31 @@
 <span id="584">584</span>
 <span id="585">585</span>
 <span id="586">586</span>
+<span id="587">587</span>
+<span id="588">588</span>
+<span id="589">589</span>
+<span id="590">590</span>
+<span id="591">591</span>
+<span id="592">592</span>
+<span id="593">593</span>
+<span id="594">594</span>
+<span id="595">595</span>
+<span id="596">596</span>
+<span id="597">597</span>
+<span id="598">598</span>
+<span id="599">599</span>
+<span id="600">600</span>
+<span id="601">601</span>
+<span id="602">602</span>
+<span id="603">603</span>
+<span id="604">604</span>
+<span id="605">605</span>
+<span id="606">606</span>
+<span id="607">607</span>
+<span id="608">608</span>
+<span id="609">609</span>
+<span id="610">610</span>
+<span id="611">611</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">crate</span><span class="ident">::Error</span>;
 <span class="kw">use</span> <span class="ident">nom</span>::{
@@ -600,7 +625,7 @@
 };
 
 <span class="doccomment">/// Prerelease segment.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">Debug</span>, <span class="ident">PartialEq</span>, <span class="ident">PartialOrd</span>, <span class="ident">Eq</span>, <span class="ident">Ord</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">Debug</span>, <span class="ident">PartialEq</span>, <span class="ident">PartialOrd</span>, <span class="ident">Eq</span>, <span class="ident">Ord</span>, <span class="ident">Hash</span>)]</span>
 <span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">Pre</span> {
     <span class="ident">A</span>(<span class="ident">u64</span>),
     <span class="ident">B</span>(<span class="ident">u64</span>),
@@ -691,6 +716,20 @@
     }
 }
 
+<span class="kw">impl</span> <span class="ident">std::hash::Hash</span> <span class="kw">for</span> <span class="ident">Release</span> {
+    <span class="kw">fn</span> <span class="ident">hash</span><span class="op">&lt;</span><span class="ident">H</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">state</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">H</span>)
+    <span class="kw">where</span>
+        <span class="ident">H</span>: <span class="ident">std::hash::Hasher</span>,
+    {
+        <span class="ident">state</span>.<span class="ident">write_u64</span>(<span class="self">self</span>[<span class="number">0</span>]);
+        <span class="kw">for</span> <span class="ident">component</span> <span class="kw">in</span> <span class="self">self</span>.<span class="ident">iter</span>().<span class="ident">skip</span>(<span class="number">1</span>).<span class="ident">rev</span>().<span class="ident">copied</span>() {
+            <span class="kw">if</span> <span class="ident">component</span> <span class="op">!</span><span class="op">=</span> <span class="number">0</span> {
+                <span class="ident">state</span>.<span class="ident">write_u64</span>(<span class="ident">component</span>);
+            }
+        }
+    }
+}
+
 <span class="doccomment">/// An alphanumeric local version component.</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Debug</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Alphanumeric</span>(<span class="ident">String</span>);
@@ -748,8 +787,19 @@
     }
 }
 
+<span class="kw">impl</span> <span class="ident">std::hash::Hash</span> <span class="kw">for</span> <span class="ident">Alphanumeric</span> {
+    <span class="kw">fn</span> <span class="ident">hash</span><span class="op">&lt;</span><span class="ident">H</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">state</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">H</span>)
+    <span class="kw">where</span>
+        <span class="ident">H</span>: <span class="ident">std::hash::Hasher</span>,
+    {
+        <span class="kw">for</span> <span class="ident">c</span> <span class="kw">in</span> <span class="self">self</span>.<span class="ident">chars</span>() {
+            <span class="ident">state</span>.<span class="ident">write_u32</span>(<span class="ident">c</span>.<span class="ident">to_ascii_lowercase</span>() <span class="kw">as</span> <span class="ident">u32</span>);
+        }
+    }
+}
+
 <span class="doccomment">/// A local version component.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Debug</span>, <span class="ident">PartialEq</span>, <span class="ident">PartialOrd</span>, <span class="ident">Eq</span>, <span class="ident">Ord</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Debug</span>, <span class="ident">PartialEq</span>, <span class="ident">PartialOrd</span>, <span class="ident">Eq</span>, <span class="ident">Ord</span>, <span class="ident">Hash</span>)]</span>
 <span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">Local</span> {
     <span class="ident">Alphanumeric</span>(<span class="ident">Alphanumeric</span>),
     <span class="ident">Numeric</span>(<span class="ident">u64</span>),
@@ -767,7 +817,7 @@
 <span class="doccomment">/// A PEP 440 version.</span>
 <span class="doccomment">///</span>
 <span class="doccomment">/// `Display`ing this type renders the normalized version.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Debug</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Debug</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">Hash</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Version</span> {
     <span class="kw">pub</span> <span class="ident">epoch</span>: <span class="ident">u64</span>,
     <span class="kw">pub</span> <span class="ident">release</span>: <span class="ident">Release</span>,

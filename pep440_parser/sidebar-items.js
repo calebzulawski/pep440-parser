@@ -1,1 +1,1 @@
-initSidebarItems({"mod":[["version",""]],"type":[["Error",""]]});
+initSidebarItems({"mod":[["version",""]],"type":[["Error","A parsing error."]]});
