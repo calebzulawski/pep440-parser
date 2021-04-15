@@ -1,6 +1,9 @@
 //! Parsing PEP 440 version specifiers.
 
+mod parse;
+
 use crate::{LocalVersion, PublicVersion};
+use thiserror::Error;
 
 /// A comparison clause.
 #[derive(Copy, Clone, Debug)]
@@ -112,6 +115,18 @@ pub enum Specifier {
     ArbitraryEquality(String),
 }
 
+impl Specifier {
+    /// Parse a version specifier.
+    pub fn parse(s: &str) -> Result<Self, Error> {
+        parse::parse_specifier(s)
+    }
+
+    /// Parse multiple version specifiers.
+    pub fn parse_multiple(s: &str) -> Result<Vec<Self>, Error> {
+        s.split(',').map(Self::parse).collect()
+    }
+}
+
 impl std::fmt::Display for Specifier {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -124,4 +139,15 @@ impl std::fmt::Display for Specifier {
             Self::ArbitraryEquality(ver) => write!(f, "==={}", ver),
         }
     }
+}
+
+/// A specifier parsing error.
+#[derive(Error, Clone, Debug)]
+pub enum Error {
+    #[error("unexpected value when parsing specifier: {0}")]
+    Unexpected(String),
+    #[error("compatible version must have at least two release components: {0}")]
+    Compatible(PublicVersion),
+    #[error("wildcard versions may not be development releases: {0}.*")]
+    Wildcard(PublicVersion),
 }
