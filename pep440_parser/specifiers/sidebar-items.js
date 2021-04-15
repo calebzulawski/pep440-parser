@@ -1,1 +1,1 @@
-initSidebarItems({"enum":[["Comparison","A comparison clause."],["Specifier","A PEP 440 version specifier."]],"struct":[["CompatibleVersion","A compatible version."],["WildcardVersion","A wildcard version, such as `1.*`"]]});
+initSidebarItems({"enum":[["Comparison","A comparison clause."],["Error","A specifier parsing error."],["Specifier","A PEP 440 version specifier."]],"struct":[["CompatibleVersion","A compatible version."],["WildcardVersion","A wildcard version, such as `1.*`"]]});
