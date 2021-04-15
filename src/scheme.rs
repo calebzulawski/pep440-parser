@@ -7,7 +7,7 @@ use nom::{
     character::complete::{alphanumeric1, char, digit1, one_of, satisfy},
     combinator::{all_consuming, map_res, opt},
     multi::{many0_count, separated_list0, separated_list1},
-    sequence::{preceded, terminated, tuple},
+    sequence::{delimited, preceded, terminated, tuple},
     Finish, IResult, Parser,
 };
 
@@ -117,12 +117,12 @@ impl std::hash::Hash for Release {
     }
 }
 
-/// An alphanumeric local version component.
+/// An alphanumeric local version label component.
 #[derive(Clone, Debug)]
 pub struct Alphanumeric(String);
 
 impl Alphanumeric {
-    /// Returns the local version component only if the string contains ASCII alphanumeric
+    /// Returns the local version label component only if the string contains ASCII alphanumeric
     /// characters, and contains at least one alphabetic character.
     ///
     /// Otherwise, returns the original string.
@@ -185,14 +185,14 @@ impl std::hash::Hash for Alphanumeric {
     }
 }
 
-/// A local version component.
+/// A local version label component.
 #[derive(Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash)]
-pub enum Local {
+pub enum LabelComponent {
     Alphanumeric(Alphanumeric),
     Numeric(u64),
 }
 
-impl std::fmt::Display for Local {
+impl std::fmt::Display for LabelComponent {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Alphanumeric(x) => write!(f, "{}", x),
@@ -201,23 +201,20 @@ impl std::fmt::Display for Local {
     }
 }
 
-/// A PEP 440 version.
-///
-/// `Display`ing this type renders the normalized version.
+/// A PEP 440 public version.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub struct Version {
+pub struct PublicVersion {
     pub epoch: u64,
     pub release: Release,
     pub pre: Option<Pre>,
     pub post: Option<u64>,
     pub dev: Option<u64>,
-    pub local: Vec<Local>,
 }
 
-impl Version {
+impl PublicVersion {
     /// Parse a version, also returning if it was in the canonical format.
     pub fn check_parse(s: &str) -> Result<(bool, Self), Error> {
-        match all_consuming(version)(s).finish() {
+        match all_consuming(Self::parse_impl)(s).finish() {
             Err(nom::error::Error { input, code }) => Err(nom::error::Error {
                 input: input.to_string(),
                 code,
@@ -230,9 +227,22 @@ impl Version {
     pub fn parse(s: &str) -> Result<Self, Error> {
         Self::check_parse(s).map(|(_, v)| v)
     }
+
+    /// Parse implementation.
+    pub(crate) fn parse_impl(s: &str) -> IResult<&str, (bool, Self)> {
+        delimited(whitespace, public_version, whitespace)(s)
+    }
 }
 
-impl PartialOrd for Version {
+impl std::str::FromStr for PublicVersion {
+    type Err = Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Self::parse(s)
+    }
+}
+
+impl PartialOrd for PublicVersion {
     fn partial_cmp(&self, rhs: &Self) -> Option<std::cmp::Ordering> {
         // Inverts the ordering of an Option, such that `None` is greater than `Some(anything)`
         fn inv<T>(v: Option<T>) -> (bool, Option<T>) {
@@ -253,7 +263,6 @@ impl PartialOrd for Version {
             inv(self.pre),
             self.post,
             inv(self.dev),
-            &self.local,
         )
             .partial_cmp(&(
                 rhs.epoch,
@@ -262,18 +271,17 @@ impl PartialOrd for Version {
                 inv(rhs.pre),
                 rhs.post,
                 inv(rhs.dev),
-                &rhs.local,
             ))
     }
 }
 
-impl Ord for Version {
+impl Ord for PublicVersion {
     fn cmp(&self, rhs: &Self) -> std::cmp::Ordering {
         self.partial_cmp(rhs).unwrap()
     }
 }
 
-impl std::fmt::Display for Version {
+impl std::fmt::Display for PublicVersion {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if self.epoch != 0 {
             write!(f, "{}!", self.epoch)?;
@@ -288,17 +296,58 @@ impl std::fmt::Display for Version {
         if let Some(dev) = self.dev {
             write!(f, ".dev{}", dev)?;
         }
-        if !self.local.is_empty() {
-            write!(f, "+{}", self.local[0])?;
-            for local in &self.local[1..] {
-                write!(f, ".{}", local)?;
+        Ok(())
+    }
+}
+
+/// A PEP 440 local version.
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct LocalVersion {
+    pub version: PublicVersion,
+    pub label: Vec<LabelComponent>,
+}
+
+impl LocalVersion {
+    /// Parse a version, also returning if it was in the canonical format.
+    pub fn check_parse(s: &str) -> Result<(bool, Self), Error> {
+        match all_consuming(Self::parse_impl)(s).finish() {
+            Err(nom::error::Error { input, code }) => Err(nom::error::Error {
+                input: input.to_string(),
+                code,
+            }),
+            Ok((_, r)) => Ok(r),
+        }
+    }
+
+    /// Parse a version, accepting non-canonical input.
+    pub fn parse(s: &str) -> Result<Self, Error> {
+        Self::check_parse(s).map(|(_, v)| v)
+    }
+
+    /// Parse implementation.
+    pub(crate) fn parse_impl(s: &str) -> IResult<&str, (bool, Self)> {
+        delimited(whitespace, tuple((public_version, label)), whitespace)
+            .map(|((canonical, version), label)| {
+                (canonical && label.is_empty(), Self { version, label })
+            })
+            .parse(s)
+    }
+}
+
+impl std::fmt::Display for LocalVersion {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.version)?;
+        if !self.label.is_empty() {
+            write!(f, "+{}", self.label[0])?;
+            for part in &self.label[1..] {
+                write!(f, ".{}", part)?;
             }
         }
         Ok(())
     }
 }
 
-impl std::str::FromStr for Version {
+impl std::str::FromStr for LocalVersion {
     type Err = Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -407,15 +456,16 @@ fn dev(s: &str) -> IResult<&str, (bool, Option<u64>)> {
         .parse(s)
 }
 
-// parse the local segment
-fn local(s: &str) -> IResult<&str, Vec<Local>> {
+// parse the local version label segment
+fn label(s: &str) -> IResult<&str, Vec<LabelComponent>> {
     opt(preceded(
         char('+'),
         separated_list0(
             one_of(".-_"),
             alt((
-                digit.map(Local::Numeric),
-                alphanumeric1.map(|s: &str| Local::Alphanumeric(Alphanumeric(s.to_string()))),
+                digit.map(LabelComponent::Numeric),
+                alphanumeric1
+                    .map(|s: &str| LabelComponent::Alphanumeric(Alphanumeric(s.to_string()))),
             )),
         ),
     ))
@@ -429,33 +479,28 @@ fn whitespace(s: &str) -> IResult<&str, ()> {
         .parse(s)
 }
 
-// parse a version
-fn version(s: &str) -> IResult<&str, (bool, Version)> {
+// parse a public version
+fn public_version(s: &str) -> IResult<&str, (bool, PublicVersion)> {
     let v = opt(char('v')).map(|x| x.is_none());
-    tuple((
-        whitespace, v, epoch, release, pre, post, dev, local, whitespace,
-    ))
-    .map(
-        |(_, c0, epoch, release, (c1, pre), (c2, post), (c3, dev), local, _)| {
+    tuple((v, epoch, release, pre, post, dev))
+        .map(|(c0, epoch, release, (c1, pre), (c2, post), (c3, dev))| {
             (
-                c0 && c1 && c2 && c3 && local.is_empty(),
-                Version {
+                c0 && c1 && c2 && c3,
+                PublicVersion {
                     epoch,
                     release,
                     pre,
                     post,
                     dev,
-                    local,
                 },
             )
-        },
-    )
-    .parse(s)
+        })
+        .parse(s)
 }
 
 #[cfg(test)]
 mod test {
-    use super::Version;
+    use super::LocalVersion;
 
     /// Example versions copied from PEP 440
     const EXAMPLE: &[&str] = &[
@@ -482,7 +527,7 @@ mod test {
     #[test]
     fn round_trip() {
         fn assert_round_trip(s: &str) {
-            assert_eq!(format!("{}", Version::parse(s).unwrap()), s);
+            assert_eq!(format!("{}", LocalVersion::parse(s).unwrap()), s);
         }
 
         // Check examples
@@ -503,7 +548,7 @@ mod test {
         use super::*;
 
         fn assert_normalize(input: &str, expect: &str) {
-            assert_eq!(format!("{}", Version::parse(input).unwrap()), expect);
+            assert_eq!(format!("{}", LocalVersion::parse(input).unwrap()), expect);
         }
 
         #[test]
@@ -564,7 +609,7 @@ mod test {
         #[test]
         #[should_panic]
         fn bad_implicit_post_release() {
-            Version::parse("1.2-").unwrap();
+            LocalVersion::parse("1.2-").unwrap();
         }
 
         #[test]
@@ -600,7 +645,7 @@ mod test {
         let mut versions = EXAMPLE
             .iter()
             .copied()
-            .map(Version::parse)
+            .map(LocalVersion::parse)
             .map(Result::unwrap);
 
         let mut left = versions.next().unwrap();
