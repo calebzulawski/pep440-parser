@@ -50,6 +50,7 @@ fn local_version(s: &str) -> IResult<&str, LocalVersion, ErrorImpl> {
         .parse(s)
 }
 
+/// Parse a compatible version specifier.
 fn compatible(s: &str) -> IResult<&str, Specifier, ErrorImpl> {
     map_res(preceded(tag("~="), public_version), |v| {
         Ok(Specifier::Compatible(
@@ -59,6 +60,7 @@ fn compatible(s: &str) -> IResult<&str, Specifier, ErrorImpl> {
     })(s)
 }
 
+/// Parse a comparison specifier.
 fn comparison(s: &str) -> IResult<&str, Specifier, ErrorImpl> {
     tuple((
         alt((tag("<="), tag(">="), tag("<"), tag(">"))),
@@ -77,6 +79,7 @@ fn comparison(s: &str) -> IResult<&str, Specifier, ErrorImpl> {
     .parse(s)
 }
 
+/// Parse a wildcard specifier.
 fn wildcard(s: &str) -> IResult<&str, Specifier, ErrorImpl> {
     map_res(
         tuple((
@@ -95,6 +98,7 @@ fn wildcard(s: &str) -> IResult<&str, Specifier, ErrorImpl> {
     )(s)
 }
 
+/// Parse an exact specifier.
 fn exact(s: &str) -> IResult<&str, Specifier, ErrorImpl> {
     tuple((alt((tag("=="), tag("!="))), local_version))
         .map(|(clause, ver)| match clause {
