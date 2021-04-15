@@ -1,1 +1,1 @@
-initSidebarItems({"mod":[["version","Parsing the PEP 440 version scheme."]],"type":[["Error","A parsing error."]]});
+initSidebarItems({"mod":[["scheme","Parsing the PEP 440 version scheme."]],"type":[["Error","A parsing error."]]});

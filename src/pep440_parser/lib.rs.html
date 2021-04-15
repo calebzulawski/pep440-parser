@@ -7,8 +7,8 @@
 <span id="4">4</span>
 <span id="5">5</span>
 </pre><div class="example-wrap"><pre class="rust ">
-<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">version</span>;
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">version::Version</span>;
+<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">scheme</span>;
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">scheme</span>::{<span class="ident">LocalVersion</span>, <span class="ident">PublicVersion</span>};
 
 <span class="doccomment">/// A parsing error.</span>
 <span class="kw">pub</span> <span class="kw">type</span> <span class="ident">Error</span> <span class="op">=</span> <span class="ident">nom::error::Error</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>;
