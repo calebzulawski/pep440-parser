@@ -169,7 +169,9 @@ impl std::fmt::Display for Local {
 }
 
 /// A PEP 440 version
-#[derive(Clone, Debug)]
+///
+/// This type represents a normalized version, and `Display`ing it renders the normalized version.
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Version {
     pub epoch: u64,
     pub release: Release,
@@ -194,6 +196,47 @@ impl Version {
     /// Parse a version, accepting non-canonical input.
     pub fn parse(s: &str) -> Result<Self, nom::error::Error<String>> {
         Self::check_parse(s).map(|(_, v)| v)
+    }
+}
+
+impl PartialOrd for Version {
+    fn partial_cmp(&self, rhs: &Self) -> Option<std::cmp::Ordering> {
+        // Inverts the ordering of an Option, such that `None` is greater than `Some(anything)`
+        fn inv<T>(v: Option<T>) -> (bool, Option<T>) {
+            if v.is_some() {
+                (false, v)
+            } else {
+                (true, None)
+            }
+        }
+
+        let base_dev = |v: &Self| v.pre.is_none() && v.post.is_none() && v.dev.is_some();
+
+        // Order the elements using a tuple
+        (
+            self.epoch,
+            &self.release,
+            !base_dev(self), // dev base releases are considered earlier than prereleases
+            inv(self.pre),
+            self.post,
+            inv(self.dev),
+            &self.local,
+        )
+            .partial_cmp(&(
+                rhs.epoch,
+                &rhs.release,
+                !base_dev(rhs),
+                inv(rhs.pre),
+                rhs.post,
+                inv(rhs.dev),
+                &rhs.local,
+            ))
+    }
+}
+
+impl Ord for Version {
+    fn cmp(&self, rhs: &Self) -> std::cmp::Ordering {
+        self.partial_cmp(rhs).unwrap()
     }
 }
 
@@ -516,6 +559,22 @@ mod test {
         fn leading_and_trailing_whitespace() {
             // 0x0B is \v and 0x0C is \f
             assert_normalize(" \n  \r    1 \t  \x0C  \x0B ", "1");
+        }
+    }
+
+    #[test]
+    fn ordering() {
+        let mut versions = EXAMPLE
+            .iter()
+            .copied()
+            .map(Version::parse)
+            .map(Result::unwrap);
+
+        let mut left = versions.next().unwrap();
+        while let Some(right) = versions.next() {
+            println!("{} < {}", left, right);
+            assert!(left < right);
+            left = right;
         }
     }
 }
