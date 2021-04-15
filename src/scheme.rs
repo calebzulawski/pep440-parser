@@ -1,6 +1,5 @@
 //! Parsing the PEP 440 version scheme.
 
-use crate::Error;
 use nom::{
     branch::alt,
     bytes::complete::tag_no_case,
@@ -10,6 +9,23 @@ use nom::{
     sequence::{delimited, preceded, terminated, tuple},
     Finish, IResult, Parser,
 };
+use thiserror::Error;
+
+/// A version parsing error.
+#[derive(Error, Clone, Debug)]
+#[error("unexpected value when parsing version: {unexpected}")]
+pub struct Error {
+    /// The unexpected value.
+    unexpected: String,
+}
+
+impl Error {
+    fn from_nom(e: nom::error::Error<&str>) -> Self {
+        Self {
+            unexpected: e.input.trim().to_string(),
+        }
+    }
+}
 
 /// Prerelease segment.
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash)]
@@ -215,10 +231,7 @@ impl PublicVersion {
     /// Parse a version, also returning if it was in the canonical format.
     pub fn check_parse(s: &str) -> Result<(bool, Self), Error> {
         match all_consuming(Self::parse_impl)(s).finish() {
-            Err(nom::error::Error { input, code }) => Err(nom::error::Error {
-                input: input.to_string(),
-                code,
-            }),
+            Err(e) => Err(Error::from_nom(e)),
             Ok((_, r)) => Ok(r),
         }
     }
@@ -311,10 +324,7 @@ impl LocalVersion {
     /// Parse a version, also returning if it was in the canonical format.
     pub fn check_parse(s: &str) -> Result<(bool, Self), Error> {
         match all_consuming(Self::parse_impl)(s).finish() {
-            Err(nom::error::Error { input, code }) => Err(nom::error::Error {
-                input: input.to_string(),
-                code,
-            }),
+            Err(e) => Err(Error::from_nom(e)),
             Ok((_, r)) => Ok(r),
         }
     }
