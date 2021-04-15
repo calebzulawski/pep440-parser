@@ -1,1 +1,1 @@
-initSidebarItems({"mod":[["version",""]]});
+initSidebarItems({"mod":[["version",""]],"type":[["Error",""]]});
