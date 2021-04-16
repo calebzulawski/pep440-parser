@@ -499,6 +499,35 @@
 <span id="496">496</span>
 <span id="497">497</span>
 <span id="498">498</span>
+<span id="499">499</span>
+<span id="500">500</span>
+<span id="501">501</span>
+<span id="502">502</span>
+<span id="503">503</span>
+<span id="504">504</span>
+<span id="505">505</span>
+<span id="506">506</span>
+<span id="507">507</span>
+<span id="508">508</span>
+<span id="509">509</span>
+<span id="510">510</span>
+<span id="511">511</span>
+<span id="512">512</span>
+<span id="513">513</span>
+<span id="514">514</span>
+<span id="515">515</span>
+<span id="516">516</span>
+<span id="517">517</span>
+<span id="518">518</span>
+<span id="519">519</span>
+<span id="520">520</span>
+<span id="521">521</span>
+<span id="522">522</span>
+<span id="523">523</span>
+<span id="524">524</span>
+<span id="525">525</span>
+<span id="526">526</span>
+<span id="527">527</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! Parsing the PEP 440 version scheme.</span>
 
@@ -731,6 +760,23 @@
     <span class="doccomment">/// Parse a version, accepting non-canonical input.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">parse</span>(<span class="ident">s</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">Error</span><span class="op">&gt;</span> {
         <span class="self">Self</span><span class="ident">::check_parse</span>(<span class="ident">s</span>).<span class="ident">map</span>(<span class="op">|</span>(<span class="kw">_</span>, <span class="ident">v</span>)<span class="op">|</span> <span class="ident">v</span>)
+    }
+
+    <span class="doccomment">/// Increment this version to the next largest version.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">next</span>(<span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+        <span class="kw">let</span> <span class="ident">inc</span> <span class="op">=</span> <span class="op">|</span><span class="ident">v</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">u64</span><span class="op">|</span> {
+            <span class="kw-2">*</span><span class="ident">v</span> <span class="op">=</span> <span class="ident">v</span>
+                .<span class="ident">checked_add</span>(<span class="number">1</span>)
+                .<span class="ident">expect</span>(<span class="string">&quot;overflowed trying to increment release number&quot;</span>)
+        };
+        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">dev</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">dev</span>.<span class="ident">as_mut</span>() {
+            <span class="ident">inc</span>(<span class="ident">dev</span>);
+        } <span class="kw">else</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">post</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">post</span>.<span class="ident">as_mut</span>() {
+            <span class="ident">inc</span>(<span class="ident">post</span>);
+        } <span class="kw">else</span> {
+            <span class="self">self</span>.<span class="ident">post</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="number">0</span>);
+        }
+        <span class="self">self</span>
     }
 }
 
@@ -995,6 +1041,18 @@
             <span class="macro">println!</span>(<span class="string">&quot;{} &lt; {}&quot;</span>, <span class="ident">left</span>, <span class="ident">right</span>);
             <span class="macro">assert!</span>(<span class="ident">left</span> <span class="op">&lt;</span> <span class="ident">right</span>);
             <span class="ident">left</span> <span class="op">=</span> <span class="ident">right</span>;
+        }
+    }
+
+    <span class="attribute">#[<span class="ident">test</span>]</span>
+    <span class="kw">fn</span> <span class="ident">next</span>() {
+        <span class="kw">let</span> <span class="ident">versions</span> <span class="op">=</span> <span class="ident">EXAMPLE</span>
+            .<span class="ident">iter</span>()
+            .<span class="ident">copied</span>()
+            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">s</span><span class="op">|</span> <span class="ident">LocalVersion::parse</span>(<span class="ident">s</span>).<span class="ident">unwrap</span>().<span class="ident">version</span>);
+
+        <span class="kw">for</span> <span class="ident">version</span> <span class="kw">in</span> <span class="ident">versions</span> {
+            <span class="macro">assert!</span>(<span class="ident">version</span> <span class="op">&lt;</span><span class="op">=</span> <span class="ident">version</span>.<span class="ident">clone</span>().<span class="ident">next</span>());
         }
     }
 }
