@@ -111,8 +111,6 @@ pub enum Specifier {
     Wildcard(WildcardVersion),
     /// A wildcard exclusion, such as `!=1.*`.
     WildcardExclude(WildcardVersion),
-    /// Arbitrary equality, such as `===foo`.
-    ArbitraryEquality(String),
 }
 
 impl Specifier {
@@ -136,7 +134,6 @@ impl std::fmt::Display for Specifier {
             Self::ExactExclude(ver) => write!(f, "!={}", ver),
             Self::Wildcard(ver) => write!(f, "=={}", ver),
             Self::WildcardExclude(ver) => write!(f, "!={}", ver),
-            Self::ArbitraryEquality(ver) => write!(f, "==={}", ver),
         }
     }
 }
