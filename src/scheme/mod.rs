@@ -230,6 +230,23 @@ impl PublicVersion {
     pub fn parse(s: &str) -> Result<Self, Error> {
         Self::check_parse(s).map(|(_, v)| v)
     }
+
+    /// Increment this version to the next largest version.
+    pub fn next(mut self) -> Self {
+        let inc = |v: &mut u64| {
+            *v = v
+                .checked_add(1)
+                .expect("overflowed trying to increment release number")
+        };
+        if let Some(dev) = self.dev.as_mut() {
+            inc(dev);
+        } else if let Some(post) = self.post.as_mut() {
+            inc(post);
+        } else {
+            self.post = Some(0);
+        }
+        self
+    }
 }
 
 impl std::str::FromStr for PublicVersion {
@@ -493,6 +510,18 @@ mod test {
             println!("{} < {}", left, right);
             assert!(left < right);
             left = right;
+        }
+    }
+
+    #[test]
+    fn next() {
+        let versions = EXAMPLE
+            .iter()
+            .copied()
+            .map(|s| LocalVersion::parse(s).unwrap().version);
+
+        for version in versions {
+            assert!(version <= version.clone().next());
         }
     }
 }
