@@ -140,10 +140,11 @@ impl std::fmt::Display for Specifier {
     }
 }
 
+/// A set of comma-separated specifiers.
 pub struct SpecifierSet(pub Vec<Specifier>);
 
 impl SpecifierSet {
-    /// Parse a set of comma-separated version specifiers.
+    /// Parse a specifier set.
     pub fn parse(s: &str) -> Result<Self, Error> {
         s.split(',')
             .map(Specifier::parse)
