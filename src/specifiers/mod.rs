@@ -118,10 +118,12 @@ impl Specifier {
     pub fn parse(s: &str) -> Result<Self, Error> {
         parse::parse_specifier(s)
     }
+}
 
-    /// Parse multiple version specifiers.
-    pub fn parse_multiple(s: &str) -> Result<Vec<Self>, Error> {
-        s.split(',').map(Self::parse).collect()
+impl std::str::FromStr for Specifier {
+    type Err = Error;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Self::parse(s)
     }
 }
 
@@ -135,6 +137,38 @@ impl std::fmt::Display for Specifier {
             Self::Wildcard(ver) => write!(f, "=={}", ver),
             Self::WildcardExclude(ver) => write!(f, "!={}", ver),
         }
+    }
+}
+
+pub struct SpecifierSet(pub Vec<Specifier>);
+
+impl SpecifierSet {
+    /// Parse a set of comma-separated version specifiers.
+    pub fn parse(s: &str) -> Result<Self, Error> {
+        s.split(',')
+            .map(Specifier::parse)
+            .collect::<Result<Vec<_>, _>>()
+            .map(Self)
+    }
+}
+
+impl std::str::FromStr for SpecifierSet {
+    type Err = Error;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Self::parse(s)
+    }
+}
+
+impl std::fmt::Display for SpecifierSet {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut specifiers = self.0.iter();
+        if let Some(s) = specifiers.next() {
+            write!(f, "{}", s)?;
+        }
+        for s in specifiers {
+            write!(f, ",{}", s)?;
+        }
+        Ok(())
     }
 }
 

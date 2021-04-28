@@ -20,7 +20,7 @@ jobs:
           rustup default nightly
 
       - name: Build Documentation
-        run: cargo doc --no-deps
+        run: cargo doc --no-deps --all-features
         env:
           RUSTDOCFLAGS: --cfg docsrs
       
