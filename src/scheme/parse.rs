@@ -1,4 +1,6 @@
-use super::{Alphanumeric, Error, LabelComponent, LocalVersion, Pre, PublicVersion, Release};
+use super::{
+    Alphanumeric, Error, Label, LabelComponent, LocalVersion, Pre, PublicVersion, Release,
+};
 use nom::{
     branch::alt,
     bytes::complete::tag_no_case,
@@ -111,7 +113,7 @@ fn dev(s: &str) -> IResult<&str, (bool, Option<u64>)> {
 }
 
 // parse the local version label segment
-fn label(s: &str) -> IResult<&str, Vec<LabelComponent>> {
+fn label(s: &str) -> IResult<&str, Label> {
     opt(preceded(
         char('+'),
         separated_list0(
@@ -123,7 +125,7 @@ fn label(s: &str) -> IResult<&str, Vec<LabelComponent>> {
             )),
         ),
     ))
-    .map(|x| x.unwrap_or_else(Vec::new))
+    .map(|x| Label(x.unwrap_or_else(Vec::new)))
     .parse(s)
 }
 
@@ -171,7 +173,7 @@ impl LocalVersion {
     pub(crate) fn parse_impl(s: &str) -> IResult<&str, (bool, Self)> {
         delimited(whitespace, tuple((public_version, label)), whitespace)
             .map(|((canonical, version), label)| {
-                (canonical && label.is_empty(), Self { version, label })
+                (canonical && label.0.is_empty(), Self { version, label })
             })
             .parse(s)
     }

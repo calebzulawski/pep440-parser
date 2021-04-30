@@ -210,6 +210,22 @@ impl std::fmt::Display for LabelComponent {
     }
 }
 
+/// A local version label.
+#[derive(Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash)]
+pub struct Label(pub Vec<LabelComponent>);
+
+impl std::fmt::Display for Label {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if !self.0.is_empty() {
+            write!(f, "{}", self.0[0])?;
+            for part in &self.0[1..] {
+                write!(f, ".{}", part)?;
+            }
+        }
+        Ok(())
+    }
+}
+
 /// A PEP 440 public version.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct PublicVersion {
@@ -319,7 +335,7 @@ impl std::fmt::Display for PublicVersion {
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct LocalVersion {
     pub version: PublicVersion,
-    pub label: Vec<LabelComponent>,
+    pub label: Label,
 }
 
 impl LocalVersion {
@@ -337,11 +353,8 @@ impl LocalVersion {
 impl std::fmt::Display for LocalVersion {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.version)?;
-        if !self.label.is_empty() {
-            write!(f, "+{}", self.label[0])?;
-            for part in &self.label[1..] {
-                write!(f, ".{}", part)?;
-            }
+        if !self.label.0.is_empty() {
+            write!(f, "+{}", self.label)?;
         }
         Ok(())
     }
