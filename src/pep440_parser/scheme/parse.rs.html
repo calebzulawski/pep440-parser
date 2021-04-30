@@ -186,8 +186,12 @@
 <span id="183">183</span>
 <span id="184">184</span>
 <span id="185">185</span>
+<span id="186">186</span>
+<span id="187">187</span>
 </pre><div class="example-wrap"><pre class="rust ">
-<span class="kw">use</span> <span class="kw">super</span>::{<span class="ident">Alphanumeric</span>, <span class="ident">Error</span>, <span class="ident">LabelComponent</span>, <span class="ident">LocalVersion</span>, <span class="ident">Pre</span>, <span class="ident">PublicVersion</span>, <span class="ident">Release</span>};
+<span class="kw">use</span> <span class="kw">super</span>::{
+    <span class="ident">Alphanumeric</span>, <span class="ident">Error</span>, <span class="ident">Label</span>, <span class="ident">LabelComponent</span>, <span class="ident">LocalVersion</span>, <span class="ident">Pre</span>, <span class="ident">PublicVersion</span>, <span class="ident">Release</span>,
+};
 <span class="kw">use</span> <span class="ident">nom</span>::{
     <span class="ident">branch::alt</span>,
     <span class="ident">bytes::complete::tag_no_case</span>,
@@ -300,7 +304,7 @@
 }
 
 <span class="comment">// parse the local version label segment</span>
-<span class="kw">fn</span> <span class="ident">label</span>(<span class="ident">s</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">IResult</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">LabelComponent</span><span class="op">&gt;</span><span class="op">&gt;</span> {
+<span class="kw">fn</span> <span class="ident">label</span>(<span class="ident">s</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">IResult</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">Label</span><span class="op">&gt;</span> {
     <span class="ident">opt</span>(<span class="ident">preceded</span>(
         <span class="ident">char</span>(<span class="string">&#39;+&#39;</span>),
         <span class="ident">separated_list0</span>(
@@ -312,7 +316,7 @@
             )),
         ),
     ))
-    .<span class="ident">map</span>(<span class="op">|</span><span class="ident">x</span><span class="op">|</span> <span class="ident">x</span>.<span class="ident">unwrap_or_else</span>(<span class="ident">Vec::new</span>))
+    .<span class="ident">map</span>(<span class="op">|</span><span class="ident">x</span><span class="op">|</span> <span class="ident">Label</span>(<span class="ident">x</span>.<span class="ident">unwrap_or_else</span>(<span class="ident">Vec::new</span>)))
     .<span class="ident">parse</span>(<span class="ident">s</span>)
 }
 
@@ -360,7 +364,7 @@
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">parse_impl</span>(<span class="ident">s</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">IResult</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">str</span>, (<span class="ident">bool</span>, <span class="self">Self</span>)<span class="op">&gt;</span> {
         <span class="ident">delimited</span>(<span class="ident">whitespace</span>, <span class="ident">tuple</span>((<span class="ident">public_version</span>, <span class="ident">label</span>)), <span class="ident">whitespace</span>)
             .<span class="ident">map</span>(<span class="op">|</span>((<span class="ident">canonical</span>, <span class="ident">version</span>), <span class="ident">label</span>)<span class="op">|</span> {
-                (<span class="ident">canonical</span> <span class="op">&amp;&amp;</span> <span class="ident">label</span>.<span class="ident">is_empty</span>(), <span class="self">Self</span> { <span class="ident">version</span>, <span class="ident">label</span> })
+                (<span class="ident">canonical</span> <span class="op">&amp;&amp;</span> <span class="ident">label</span>.<span class="number">0</span>.<span class="ident">is_empty</span>(), <span class="self">Self</span> { <span class="ident">version</span>, <span class="ident">label</span> })
             })
             .<span class="ident">parse</span>(<span class="ident">s</span>)
     }
