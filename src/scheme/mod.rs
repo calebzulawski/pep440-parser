@@ -57,7 +57,7 @@ impl Release {
         Self { components }
     }
 
-    /// Convert this back into a Vec of components
+    /// Convert this back into a Vec of components.
     pub fn into_vec(self) -> Vec<u64> {
         self.components
     }

@@ -183,3 +183,82 @@ pub enum Error {
     #[error("wildcard versions may not be development releases: {0}.*")]
     Wildcard(PublicVersion),
 }
+
+/*
+#[cfg(test)]
+mod test {
+    use crate::{Specifier, LocalVersion};
+
+    macro_rules! specifier {
+        { $s:literal } => { Specifier::parse($s).unwrap() }
+    }
+
+    macro_rules! version {
+        { $v:literal } => { LocalVersion::parse($v).unwrap() }
+    }
+
+    /// Copied from PEP 440
+    #[test]
+    fn version_matching() {
+        {
+        let version = version!("1.1.post1");
+
+        assert!(!specifier!("== 1.1").matches(&version));
+        assert!(specifier!("== 1.1.post1").matches(&version));
+        assert!(specifier!("== 1.1.*").matches(&version));
+        }
+
+        {
+        let version = version!("1.1a1");
+
+        assert!(!specifier!("== 1.1").matches(&version));
+        assert!(specifier!("== 1.1a1").matches(&version));
+        assert!(specifier!("== 1.1.*").matches(&version));
+        }
+
+        {
+        let version = version!("1.1");
+
+        assert!(specifier!("== 1.1").matches(&version));
+        assert!(specifier!("== 1.1.0").matches(&version));
+        assert!(!specifier!("== 1.1.dev1").matches(&version));
+        assert!(!specifier!("== 1.1a1").matches(&version));
+        assert!(!specifier!("== 1.1.post1").matches(&version));
+        assert!(specifier!("== 1.1.*").matches(&version));
+        }
+    }
+
+    /// Copied from PEP 440
+    #[test]
+    fn version_exclusion() {
+        let version = version!("1.1.post1");
+        assert!(specifier!("!= 1.1").matches(&version));
+        assert!(!specifier!("!= 1.1.post1").matches(&version));
+        assert!(!specifier!("!= 1.1.*").matches(&version));
+    }
+
+    /// Copied from PEP 440
+    #[test]
+    fn exclusive_ordered_comparison() {
+        assert!(specifier!(">1.7").matches(&version!("1.7.1")));
+        assert!(!specifier!(">1.7").matches(&version!("1.7.0.post1")));
+        assert!(specifier!(">1.7.post2").matches(&version!("1.7.1")));
+        assert!(specifier!(">1.7.post2").matches(&version!("1.7.0.post3")));
+        assert!(!specifier!(">1.7.post2").matches(&version!("1.7.0")));
+    }
+
+    #[test]
+    fn more_wildcard_tests() {
+        assert!(specifier!("== 1.0.post1.*").matches(&version!("1.0.post1.dev0")));
+        assert!(specifier!("== 1.0rc0.*").matches(&version!("1.0rc0")));
+        assert!(specifier!("== 1.0rc0.*").matches(&version!("1.0rc0.dev0")));
+        assert!(specifier!("== 1.0rc0.*").matches(&version!("1.0rc0.post0")));
+        assert!(specifier!("== 1.0rc0.*").matches(&version!("1.0rc0.post0.dev0")));
+        assert!(!specifier!("== 1.0rc0.*").matches(&version!("1.1rc0.dev0")));
+        assert!(!specifier!("== 1.0rc0.*").matches(&version!("1.0rc1")));
+        assert!(specifier!("== 1.0rc0.post0.*").matches(&version!("1.0rc0.post0")));
+        assert!(specifier!("== 1.0rc0.post0.*").matches(&version!("1.0rc0.post0.dev0")));
+        assert!(!specifier!("== 1.0a1.*").matches(&version!("1.0b1")));
+    }
+}
+*/
