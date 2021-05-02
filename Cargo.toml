@@ -10,7 +10,6 @@ serde = ["serde-dep"]
 
 [dependencies]
 nom = "6"
-thiserror = "1"
 serde-dep = { package = "serde", version = "1", optional = true }
 
 [package.metadata.docs.rs]

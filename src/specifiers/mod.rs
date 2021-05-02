@@ -1,122 +1,107 @@
 //! Parsing PEP 440 version specifiers.
 
-mod parse;
+use crate::{Error, Version};
 
-use crate::scheme::{LocalVersion, PublicVersion};
-use thiserror::Error;
-
-/// A comparison clause.
+/// A specifier clause type.
 #[derive(Copy, Clone, Debug)]
-pub enum Comparison {
-    /// `<`
+pub enum ClauseType {
+    CompatibleRelease,
+    Matching,
+    Exclusion,
+    WildcardMatching,
+    WildcardExclusion,
     Less,
-    /// `<=`
     LessEqual,
-    /// `>`
     Greater,
-    /// `>=`
     GreaterEqual,
-}
-
-impl std::fmt::Display for Comparison {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let s = match self {
-            Self::Less => "<",
-            Self::LessEqual => "<=",
-            Self::Greater => ">",
-            Self::GreaterEqual => ">=",
-        };
-        write!(f, "{}", s)
-    }
-}
-
-/// A compatible version.
-///
-/// Compatible versions are public versions, but must have at least two release components.
-#[derive(Clone, Debug)]
-pub struct CompatibleVersion(PublicVersion);
-
-impl CompatibleVersion {
-    /// Converts a public version to a compatible version, or returns the original if it has only
-    /// one release component.
-    pub fn from_public_version(version: PublicVersion) -> Result<Self, PublicVersion> {
-        if version.release.len() > 1 {
-            Ok(Self(version))
-        } else {
-            Err(version)
-        }
-    }
-
-    /// Converts to a public version.
-    pub fn into_public_version(self) -> PublicVersion {
-        self.0
-    }
-
-    /// Converts to a public version.
-    pub fn as_public_version(&self) -> &PublicVersion {
-        &self.0
-    }
-}
-
-impl std::fmt::Display for CompatibleVersion {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
-
-/// A wildcard version, such as `1.*`
-#[derive(Clone, Debug)]
-pub struct WildcardVersion(PublicVersion);
-
-impl WildcardVersion {
-    /// Converts a public version to a compatible version, or returns the original if it's a
-    /// development release.
-    pub fn from_public_version(version: PublicVersion) -> Result<Self, PublicVersion> {
-        if version.dev.is_none() {
-            Ok(Self(version))
-        } else {
-            Err(version)
-        }
-    }
-
-    /// Converts to a public version.
-    pub fn into_public_version(self) -> PublicVersion {
-        self.0
-    }
-
-    /// Converts to a public version.
-    pub fn as_public_version(&self) -> &PublicVersion {
-        &self.0
-    }
-}
-
-impl std::fmt::Display for WildcardVersion {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}.*", self.0)
-    }
+    ArbitraryEquality,
 }
 
 /// A PEP 440 version specifier.
-#[derive(Clone, Debug)]
-pub enum Specifier {
-    /// A compatible version, such as `~=1.2`.
-    Compatible(CompatibleVersion),
-    /// A comparison, such as `<1.2` or `>=3`.
-    Comparison(Comparison, PublicVersion),
-    /// An exact version, such as `==1.0+foo`.
-    Exact(LocalVersion),
-    /// An exact exclusion, such as `!=1.0+foo`.
-    ExactExclude(LocalVersion),
-    /// A wildcard version, such as `==1.*`.
-    Wildcard(WildcardVersion),
-    /// A wildcard exclusion, such as `!=1.*`.
-    WildcardExclude(WildcardVersion),
+pub struct Specifier {
+    clause: ClauseType,
+    version: Version,
 }
 
 impl Specifier {
     /// Parse a version specifier.
     pub fn parse(s: &str) -> Result<Self, Error> {
-        parse::parse_specifier(s)
+        use ClauseType::*;
+
+        // Parse
+        let s = s.trim();
+        let (clause, s) = if let Some(s) = s.strip_prefix("===") {
+            (ArbitraryEquality, s)
+        } else if let Some(s) = s.strip_prefix("==") {
+            if let Some(s) = s.strip_suffix(".*") {
+                (WildcardMatching, s)
+            } else {
+                (Matching, s)
+            }
+        } else if let Some(s) = s.strip_prefix("!=") {
+            if let Some(s) = s.strip_suffix(".*") {
+                (WildcardExclusion, s)
+            } else {
+                (Exclusion, s)
+            }
+        } else if let Some(s) = s.strip_prefix("~=") {
+            (CompatibleRelease, s)
+        } else if let Some(s) = s.strip_prefix("<=") {
+            (LessEqual, s)
+        } else if let Some(s) = s.strip_prefix("<") {
+            (Less, s)
+        } else if let Some(s) = s.strip_prefix(">=") {
+            (GreaterEqual, s)
+        } else if let Some(s) = s.strip_prefix(">") {
+            (Greater, s)
+        } else {
+            return Err(Error::message(format!("invalid specifier: {}", s)));
+        };
+        let version = Version::parse(s)?;
+
+        // Validate
+        match clause {
+            Matching | Exclusion => {
+                if version.local_version().is_none() {
+                    return Err(Error::message(format!(
+                        "expected PEP 440 version, got: {}",
+                        version
+                    )));
+                }
+            }
+            CompatibleRelease | Less | LessEqual | Greater | GreaterEqual => {
+                let err = || Error::message(format!("expected public version, got: {}", version));
+                if !version.local_version().ok_or_else(err)?.label.0.is_empty() {
+                    return Err(err());
+                }
+            }
+            WildcardMatching | WildcardExclusion => {
+                let err = || Error::message(format!("expected public version, got: {}", version));
+                let local_version = version.local_version().ok_or_else(err)?;
+                if !local_version.label.0.is_empty() {
+                    return Err(err());
+                }
+                if local_version.version.dev.is_some() {
+                    return Err(Error::message(format!(
+                        "development release not allowed in prefix match: {}",
+                        version
+                    )));
+                }
+            }
+            ArbitraryEquality => {}
+        }
+
+        Ok(Self { clause, version })
+    }
+
+    /// Returns the type of this specifier.
+    pub fn clause_type(&self) -> ClauseType {
+        self.clause
+    }
+
+    /// Returns the version in this specifier.
+    pub fn version(&self) -> &Version {
+        &self.version
     }
 }
 
@@ -129,13 +114,18 @@ impl std::str::FromStr for Specifier {
 
 impl std::fmt::Display for Specifier {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Compatible(ver) => write!(f, "~={}", ver),
-            Self::Comparison(comp, ver) => write!(f, "{}{}", comp, ver),
-            Self::Exact(ver) => write!(f, "=={}", ver),
-            Self::ExactExclude(ver) => write!(f, "!={}", ver),
-            Self::Wildcard(ver) => write!(f, "=={}", ver),
-            Self::WildcardExclude(ver) => write!(f, "!={}", ver),
+        use ClauseType::*;
+        match self.clause {
+            CompatibleRelease => write!(f, "~= {}", self.version),
+            Matching => write!(f, "== {}", self.version),
+            Exclusion => write!(f, "!= {}", self.version),
+            WildcardMatching => write!(f, "== {}.*", self.version),
+            WildcardExclusion => write!(f, "!= {}.*", self.version),
+            Less => write!(f, "< {}", self.version),
+            LessEqual => write!(f, "<= {}", self.version),
+            Greater => write!(f, "> {}", self.version),
+            GreaterEqual => write!(f, ">= {}", self.version),
+            ArbitraryEquality => write!(f, "=== {}", self.version),
         }
     }
 }
@@ -171,17 +161,6 @@ impl std::fmt::Display for SpecifierSet {
         }
         Ok(())
     }
-}
-
-/// A specifier parsing error.
-#[derive(Error, Clone, Debug)]
-pub enum Error {
-    #[error("unexpected value when parsing specifier: {0}")]
-    Unexpected(String),
-    #[error("compatible version must have at least two release components: {0}")]
-    Compatible(PublicVersion),
-    #[error("wildcard versions may not be development releases: {0}.*")]
-    Wildcard(PublicVersion),
 }
 
 /*

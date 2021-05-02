@@ -2,23 +2,7 @@
 
 mod parse;
 
-use thiserror::Error;
-
-/// A version parsing error.
-#[derive(Error, Clone, Debug)]
-#[error("unexpected value when parsing version: {unexpected}")]
-pub struct Error {
-    /// The unexpected value.
-    unexpected: String,
-}
-
-impl Error {
-    fn from_nom(e: nom::error::Error<&str>) -> Self {
-        Self {
-            unexpected: e.input.trim().to_string(),
-        }
-    }
-}
+use crate::Error;
 
 /// Prerelease segment.
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash)]
@@ -369,9 +353,10 @@ impl Version {
                 version_string,
             })
         } else if s.chars().any(char::is_whitespace) {
-            Err(Error {
-                unexpected: s.to_string(),
-            })
+            Err(Error::message(format!(
+                "unexpected whitespace: {}",
+                s.to_string()
+            )))
         } else {
             Ok(Self {
                 version: None,
