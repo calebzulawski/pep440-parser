@@ -401,6 +401,11 @@ impl Version {
             })
         }
     }
+
+    /// Return the local version, or `None` if it is a legacy version.
+    pub fn local_version(&self) -> Option<&LocalVersion> {
+        self.version.as_ref()
+    }
 }
 
 impl PartialEq for Version {
