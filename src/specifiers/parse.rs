@@ -1,5 +1,5 @@
 use super::{Comparison, CompatibleVersion, Error, Specifier, WildcardVersion};
-use crate::{LocalVersion, PublicVersion};
+use crate::scheme::{LocalVersion, PublicVersion};
 use nom::{
     branch::alt,
     bytes::complete::tag,

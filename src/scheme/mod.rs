@@ -246,23 +246,6 @@ impl PublicVersion {
     pub fn parse(s: &str) -> Result<Self, Error> {
         Self::check_parse(s).map(|(_, v)| v)
     }
-
-    /// Increment this version to the next largest version.
-    pub fn next(mut self) -> Self {
-        let inc = |v: &mut u64| {
-            *v = v
-                .checked_add(1)
-                .expect("overflowed trying to increment release number")
-        };
-        if let Some(dev) = self.dev.as_mut() {
-            inc(dev);
-        } else if let Some(post) = self.post.as_mut() {
-            inc(post);
-        } else {
-            self.post = Some(0);
-        }
-        self
-    }
 }
 
 impl std::str::FromStr for PublicVersion {
@@ -368,9 +351,131 @@ impl std::str::FromStr for LocalVersion {
     }
 }
 
+/// Any version, either PEP 440 compliant or not.
+#[derive(Clone, Debug)]
+pub struct Version {
+    version: Option<LocalVersion>,
+    version_string: Option<String>,
+}
+
+impl Version {
+    /// Parse a version, including legacy versions.
+    pub fn parse(s: &str) -> Result<Self, Error> {
+        let s = s.trim();
+        if let Ok((canonical, version)) = LocalVersion::check_parse(s) {
+            let version_string = if canonical { None } else { Some(s.to_string()) };
+            Ok(Self {
+                version: Some(version),
+                version_string,
+            })
+        } else if s.chars().any(char::is_whitespace) {
+            Err(Error {
+                unexpected: s.to_string(),
+            })
+        } else {
+            Ok(Self {
+                version: None,
+                version_string: Some(s.to_string()),
+            })
+        }
+    }
+
+    /// Return if the version is a legacy version (not PEP 440 compliant).
+    pub fn is_legacy(&self) -> bool {
+        self.version.is_none()
+    }
+
+    /// Return if the version is canonical.
+    pub fn is_canonical(&self) -> bool {
+        self.version_string.is_none()
+    }
+
+    /// Return a canonicalized version of this version, or `None` if it is a legacy version.
+    pub fn canonicalize(&self) -> Option<Self> {
+        if self.is_legacy() {
+            None
+        } else {
+            Some(Self {
+                version: self.version.clone(),
+                version_string: None,
+            })
+        }
+    }
+}
+
+impl PartialEq for Version {
+    fn eq(&self, rhs: &Self) -> bool {
+        if let (Some(l), Some(r)) = (self.version.as_ref(), rhs.version.as_ref()) {
+            l == r
+        } else if self.is_legacy() && rhs.is_legacy() {
+            self.version_string.as_ref().unwrap() == rhs.version_string.as_ref().unwrap()
+        } else {
+            false
+        }
+    }
+}
+
+impl PartialOrd for Version {
+    fn partial_cmp(&self, rhs: &Self) -> Option<std::cmp::Ordering> {
+        match (self.is_legacy(), rhs.is_legacy()) {
+            (false, false) => self
+                .version
+                .as_ref()
+                .unwrap()
+                .partial_cmp(&rhs.version.as_ref().unwrap()),
+            (true, false) => Some(std::cmp::Ordering::Less),
+            (false, true) => Some(std::cmp::Ordering::Greater),
+            (true, true) => self
+                .version_string
+                .as_ref()
+                .unwrap()
+                .partial_cmp(&rhs.version_string.as_ref().unwrap()),
+        }
+    }
+}
+
+impl Eq for Version {}
+
+impl Ord for Version {
+    fn cmp(&self, rhs: &Self) -> std::cmp::Ordering {
+        self.partial_cmp(rhs).unwrap()
+    }
+}
+
+impl std::hash::Hash for Version {
+    fn hash<H>(&self, state: &mut H)
+    where
+        H: std::hash::Hasher,
+    {
+        if let Some(v) = &self.version {
+            v.hash(state);
+        } else {
+            self.version_string.as_ref().unwrap().hash(state);
+        }
+    }
+}
+
+impl std::str::FromStr for Version {
+    type Err = Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Self::parse(s)
+    }
+}
+
+impl std::fmt::Display for Version {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if let Some(s) = &self.version_string {
+            write!(f, "{}", s)
+        } else {
+            write!(f, "{}", self.version.as_ref().unwrap())
+        }
+    }
+}
+
 #[cfg(test)]
 mod test {
-    use super::LocalVersion;
+    use super::Version;
 
     /// Example versions copied from PEP 440
     const EXAMPLE: &[&str] = &[
@@ -397,7 +502,7 @@ mod test {
     #[test]
     fn round_trip() {
         fn assert_round_trip(s: &str) {
-            assert_eq!(format!("{}", LocalVersion::parse(s).unwrap()), s);
+            assert_eq!(format!("{}", Version::parse(s).unwrap()), s);
         }
 
         // Check examples
@@ -412,13 +517,23 @@ mod test {
         assert_round_trip("1+1");
         assert_round_trip("1+x");
         assert_round_trip("1+aaaa.bbbb.cccc.1234.1234.1234");
+
+        // Try a legacy version
+        assert_round_trip("foobar");
     }
 
     mod normalize {
         use super::*;
 
         fn assert_normalize(input: &str, expect: &str) {
-            assert_eq!(format!("{}", LocalVersion::parse(input).unwrap()), expect);
+            assert_eq!(
+                Version::parse(input)
+                    .unwrap()
+                    .canonicalize()
+                    .unwrap()
+                    .to_string(),
+                expect
+            );
         }
 
         #[test]
@@ -477,9 +592,8 @@ mod test {
         }
 
         #[test]
-        #[should_panic]
         fn bad_implicit_post_release() {
-            LocalVersion::parse("1.2-").unwrap();
+            assert!(Version::parse("1.2-").unwrap().is_legacy());
         }
 
         #[test]
@@ -515,7 +629,7 @@ mod test {
         let mut versions = EXAMPLE
             .iter()
             .copied()
-            .map(LocalVersion::parse)
+            .map(Version::parse)
             .map(Result::unwrap);
 
         let mut left = versions.next().unwrap();
@@ -527,14 +641,13 @@ mod test {
     }
 
     #[test]
-    fn next() {
-        let versions = EXAMPLE
-            .iter()
-            .copied()
-            .map(|s| LocalVersion::parse(s).unwrap().version);
-
-        for version in versions {
-            assert!(version <= version.clone().next());
-        }
+    fn legacy_ordering() {
+        assert!(Version::parse("foo").unwrap() < Version::parse("1").unwrap());
+        assert!(Version::parse("2").unwrap() > Version::parse("bar").unwrap());
+        assert!(Version::parse("ab").unwrap() < Version::parse("b").unwrap());
+        assert_eq!(
+            Version::parse("foobar").unwrap(),
+            Version::parse("   foobar  ").unwrap()
+        );
     }
 }

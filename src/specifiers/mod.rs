@@ -2,7 +2,7 @@
 
 mod parse;
 
-use crate::{LocalVersion, PublicVersion};
+use crate::scheme::{LocalVersion, PublicVersion};
 use thiserror::Error;
 
 /// A comparison clause.

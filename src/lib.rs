@@ -1,5 +1,5 @@
 pub mod scheme;
-pub use scheme::{LocalVersion, PublicVersion};
+pub use scheme::Version;
 
 pub mod specifiers;
 pub use specifiers::{Specifier, SpecifierSet};
