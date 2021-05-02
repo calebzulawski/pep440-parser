@@ -21,7 +21,8 @@ macro_rules! impl_serde {
     }
 }
 
-impl_serde! { crate::PublicVersion }
-impl_serde! { crate::LocalVersion }
+impl_serde! { crate::scheme::PublicVersion }
+impl_serde! { crate::scheme::LocalVersion }
+impl_serde! { crate::Version }
 impl_serde! { crate::Specifier }
 impl_serde! { crate::SpecifierSet }
