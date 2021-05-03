@@ -94,7 +94,9 @@ impl Specifier {
 
         // Get the upper bound, if there is one
         let inc = |v: &mut u64| {
-            *v = v.checked_add(1).expect("failed to increment version number");
+            *v = v
+                .checked_add(1)
+                .expect("failed to increment version number");
         };
         let range = match clause {
             WildcardMatching | WildcardExclusion => {
@@ -128,7 +130,7 @@ impl Specifier {
                     let mut end = version.public_version().unwrap().clone();
                     let last = end.release.last_mut().unwrap();
                     *last = 0;
-                    inc(end.release.iter_mut().rev().skip(1).next().unwrap());
+                    inc(end.release.iter_mut().rev().nth(1).unwrap());
                     end.pre = None;
                     end.post = None;
                     end.dev = Some(0);
@@ -139,7 +141,11 @@ impl Specifier {
             _ => None,
         };
 
-        Ok(Self { clause, version, range })
+        Ok(Self {
+            clause,
+            version,
+            range,
+        })
     }
 
     /// Return `true` if the version matches this specifier, and `false` if it does not.
@@ -149,30 +155,38 @@ impl Specifier {
             let v = v.public_version().unwrap();
             v.pre.is_some() || v.dev.is_some()
         };
-        let is_post_release = |v: &Version| {
-            v.public_version().unwrap().post.is_some()
-        };
+        let is_post_release = |v: &Version| v.public_version().unwrap().post.is_some();
         let is_same_release = |a: &Version, b: &Version| {
             let a = a.public_version().unwrap();
             let b = b.public_version().unwrap();
             a.epoch == b.epoch && a.release == b.release
         };
         match self.clause {
-            ArbitraryEquality => {
-                match (version.is_canonical(), self.version.is_canonical()) {
-                    (true, true) => version.version == self.version.version,
-                    (false, false) => version.version_string == self.version.version_string,
-                    _ => false,
-                }
+            ArbitraryEquality => match (version.is_canonical(), self.version.is_canonical()) {
+                (true, true) => version.version == self.version.version,
+                (false, false) => version.version_string == self.version.version_string,
+                _ => false,
+            },
+            Matching => {
+                version.local_version().unwrap().version
+                    == self.version.local_version().unwrap().version
             }
-            Matching => version.local_version().unwrap().version == self.version.local_version().unwrap().version,
-            Exclusion => version.local_version().unwrap().version != self.version.local_version().unwrap().version,
+            Exclusion => {
+                version.local_version().unwrap().version
+                    != self.version.local_version().unwrap().version
+            }
             GreaterEqual => version >= &self.version,
             LessEqual => version <= &self.version,
             // reject post-releases of the same version
-            Greater => version > &self.version && (is_post_release(&self.version) || !is_same_release(version, &self.version)),
+            Greater => {
+                version > &self.version
+                    && (is_post_release(&self.version) || !is_same_release(version, &self.version))
+            }
             // reject pre-releases of the same version, unless the spec is a pre-release
-            Less => version < &self.version && (is_prerelease(&self.version) || !is_same_release(version, &self.version)),
+            Less => {
+                version < &self.version
+                    && (is_prerelease(&self.version) || !is_same_release(version, &self.version))
+            }
             WildcardMatching => self.range.as_ref().unwrap().contains(&version),
             WildcardExclusion => !self.range.as_ref().unwrap().contains(&version),
             CompatibleRelease => self.range.as_ref().unwrap().contains(&version),
@@ -269,27 +283,27 @@ mod test {
     fn version_matching() {
         // Copied from PEP 440
         {
-        let version = version!("1.1.post1");
-        assert!(!specifier!("== 1.1").matches(&version));
-        assert!(specifier!("== 1.1.post1").matches(&version));
-        assert!(specifier!("== 1.1.*").matches(&version));
+            let version = version!("1.1.post1");
+            assert!(!specifier!("== 1.1").matches(&version));
+            assert!(specifier!("== 1.1.post1").matches(&version));
+            assert!(specifier!("== 1.1.*").matches(&version));
         }
 
         {
-        let version = version!("1.1a1");
-        assert!(!specifier!("== 1.1").matches(&version));
-        assert!(specifier!("== 1.1a1").matches(&version));
-        assert!(specifier!("== 1.1.*").matches(&version));
+            let version = version!("1.1a1");
+            assert!(!specifier!("== 1.1").matches(&version));
+            assert!(specifier!("== 1.1a1").matches(&version));
+            assert!(specifier!("== 1.1.*").matches(&version));
         }
 
         {
-        let version = version!("1.1");
-        assert!(specifier!("== 1.1").matches(&version));
-        assert!(specifier!("== 1.1.0").matches(&version));
-        assert!(!specifier!("== 1.1.dev1").matches(&version));
-        assert!(!specifier!("== 1.1a1").matches(&version));
-        assert!(!specifier!("== 1.1.post1").matches(&version));
-        assert!(specifier!("== 1.1.*").matches(&version));
+            let version = version!("1.1");
+            assert!(specifier!("== 1.1").matches(&version));
+            assert!(specifier!("== 1.1.0").matches(&version));
+            assert!(!specifier!("== 1.1.dev1").matches(&version));
+            assert!(!specifier!("== 1.1a1").matches(&version));
+            assert!(!specifier!("== 1.1.post1").matches(&version));
+            assert!(specifier!("== 1.1.*").matches(&version));
         }
 
         // Additional tests
