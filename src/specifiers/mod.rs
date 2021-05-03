@@ -8,8 +8,8 @@ pub enum ClauseType {
     CompatibleRelease,
     Matching,
     Exclusion,
-    WildcardMatching,
-    WildcardExclusion,
+    PrefixMatching,
+    PrefixExclusion,
     Less,
     LessEqual,
     Greater,
@@ -35,13 +35,13 @@ impl Specifier {
             (ArbitraryEquality, s)
         } else if let Some(s) = s.strip_prefix("==") {
             if let Some(s) = s.strip_suffix(".*") {
-                (WildcardMatching, s)
+                (PrefixMatching, s)
             } else {
                 (Matching, s)
             }
         } else if let Some(s) = s.strip_prefix("!=") {
             if let Some(s) = s.strip_suffix(".*") {
-                (WildcardExclusion, s)
+                (PrefixExclusion, s)
             } else {
                 (Exclusion, s)
             }
@@ -76,7 +76,7 @@ impl Specifier {
                     return Err(err());
                 }
             }
-            WildcardMatching | WildcardExclusion => {
+            PrefixMatching | PrefixExclusion => {
                 let err = || Error::message(format!("expected public version, got: {}", version));
                 let local_version = version.local_version().ok_or_else(err)?;
                 if !local_version.label.0.is_empty() {
@@ -99,7 +99,7 @@ impl Specifier {
                 .expect("failed to increment version number");
         };
         let range = match clause {
-            WildcardMatching | WildcardExclusion => {
+            PrefixMatching | PrefixExclusion => {
                 let start = {
                     let mut start = version.public_version().unwrap().clone();
                     start.dev = Some(0);
@@ -187,8 +187,8 @@ impl Specifier {
                 version < &self.version
                     && (is_prerelease(&self.version) || !is_same_release(version, &self.version))
             }
-            WildcardMatching => self.range.as_ref().unwrap().contains(&version),
-            WildcardExclusion => !self.range.as_ref().unwrap().contains(&version),
+            PrefixMatching => self.range.as_ref().unwrap().contains(&version),
+            PrefixExclusion => !self.range.as_ref().unwrap().contains(&version),
             CompatibleRelease => self.range.as_ref().unwrap().contains(&version),
         }
     }
@@ -218,8 +218,8 @@ impl std::fmt::Display for Specifier {
             CompatibleRelease => write!(f, "~= {}", self.version),
             Matching => write!(f, "== {}", self.version),
             Exclusion => write!(f, "!= {}", self.version),
-            WildcardMatching => write!(f, "== {}.*", self.version),
-            WildcardExclusion => write!(f, "!= {}.*", self.version),
+            PrefixMatching => write!(f, "== {}.*", self.version),
+            PrefixExclusion => write!(f, "!= {}.*", self.version),
             Less => write!(f, "< {}", self.version),
             LessEqual => write!(f, "<= {}", self.version),
             Greater => write!(f, "> {}", self.version),
