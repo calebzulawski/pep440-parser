@@ -226,6 +226,11 @@ impl SpecifierSet {
             .collect::<Result<Vec<_>, _>>()
             .map(Self)
     }
+
+    /// Return `true` if the version matches all of the specifiers, and `false` if it does not.
+    pub fn matches(&self, version: &Version) -> bool {
+        self.0.iter().all(|s| s.matches(&version))
+    }
 }
 
 impl std::str::FromStr for SpecifierSet {
@@ -260,12 +265,11 @@ mod test {
         { $v:literal } => { Version::parse($v).unwrap() }
     }
 
-    /// Copied from PEP 440
     #[test]
     fn version_matching() {
+        // Copied from PEP 440
         {
         let version = version!("1.1.post1");
-
         assert!(!specifier!("== 1.1").matches(&version));
         assert!(specifier!("== 1.1.post1").matches(&version));
         assert!(specifier!("== 1.1.*").matches(&version));
@@ -273,7 +277,6 @@ mod test {
 
         {
         let version = version!("1.1a1");
-
         assert!(!specifier!("== 1.1").matches(&version));
         assert!(specifier!("== 1.1a1").matches(&version));
         assert!(specifier!("== 1.1.*").matches(&version));
@@ -281,7 +284,6 @@ mod test {
 
         {
         let version = version!("1.1");
-
         assert!(specifier!("== 1.1").matches(&version));
         assert!(specifier!("== 1.1.0").matches(&version));
         assert!(!specifier!("== 1.1.dev1").matches(&version));
@@ -289,29 +291,8 @@ mod test {
         assert!(!specifier!("== 1.1.post1").matches(&version));
         assert!(specifier!("== 1.1.*").matches(&version));
         }
-    }
 
-    /// Copied from PEP 440
-    #[test]
-    fn version_exclusion() {
-        let version = version!("1.1.post1");
-        assert!(specifier!("!= 1.1").matches(&version));
-        assert!(!specifier!("!= 1.1.post1").matches(&version));
-        assert!(!specifier!("!= 1.1.*").matches(&version));
-    }
-
-    /// Copied from PEP 440
-    #[test]
-    fn exclusive_ordered_comparison() {
-        assert!(specifier!(">1.7").matches(&version!("1.7.1")));
-        assert!(!specifier!(">1.7").matches(&version!("1.7.0.post1")));
-        assert!(specifier!(">1.7.post2").matches(&version!("1.7.1")));
-        assert!(specifier!(">1.7.post2").matches(&version!("1.7.0.post3")));
-        assert!(!specifier!(">1.7.post2").matches(&version!("1.7.0")));
-    }
-
-    #[test]
-    fn more_wildcard_tests() {
+        // Additional tests
         assert!(specifier!("== 1.0.post1.*").matches(&version!("1.0.post1.dev0")));
         assert!(specifier!("== 1.0rc0.*").matches(&version!("1.0rc0")));
         assert!(specifier!("== 1.0rc0.*").matches(&version!("1.0rc0.dev0")));
@@ -322,5 +303,57 @@ mod test {
         assert!(specifier!("== 1.0rc0.post0.*").matches(&version!("1.0rc0.post0")));
         assert!(specifier!("== 1.0rc0.post0.*").matches(&version!("1.0rc0.post0.dev0")));
         assert!(!specifier!("== 1.0a1.*").matches(&version!("1.0b1")));
+    }
+
+    #[test]
+    fn version_exclusion() {
+        // Copied from PEP 440
+        let version = version!("1.1.post1");
+        assert!(specifier!("!= 1.1").matches(&version));
+        assert!(!specifier!("!= 1.1.post1").matches(&version));
+        assert!(!specifier!("!= 1.1.*").matches(&version));
+    }
+
+    #[test]
+    fn exclusive_ordered_comparison() {
+        // Copied from PEP 440
+        assert!(specifier!(">1.7").matches(&version!("1.7.1")));
+        assert!(!specifier!(">1.7").matches(&version!("1.7.0.post1")));
+        assert!(specifier!(">1.7.post2").matches(&version!("1.7.1")));
+        assert!(specifier!(">1.7.post2").matches(&version!("1.7.0.post3")));
+        assert!(!specifier!(">1.7.post2").matches(&version!("1.7.0")));
+
+        // Additional tests
+        assert!(specifier!("<2.5").matches(&version!("2.4")));
+        assert!(!specifier!("<2.5").matches(&version!("2.5a0")));
+        assert!(!specifier!("<2.5").matches(&version!("2.5.dev0")));
+    }
+
+    #[test]
+    fn inclusive_ordered_comparison() {
+        assert!(specifier!(">=1.2a4").matches(&version!("1.2a4")));
+        assert!(specifier!(">=1.2a4").matches(&version!("1.2a5")));
+        assert!(specifier!(">=1.2a4").matches(&version!("2")));
+        assert!(!specifier!(">=1.2a4").matches(&version!("1.2a4.dev0")));
+        assert!(!specifier!(">=1.2a4").matches(&version!("1")));
+
+        assert!(specifier!("<=1.2a4").matches(&version!("1.2a4")));
+        assert!(specifier!("<=1.2a4").matches(&version!("1.2a4.dev0")));
+        assert!(specifier!("<=1.2a4").matches(&version!("1.2a3")));
+        assert!(specifier!("<=1.2a4").matches(&version!("1")));
+        assert!(!specifier!("<=1.2a4").matches(&version!("1.2a4.post0")));
+        assert!(!specifier!("<=1.2a4").matches(&version!("2")));
+    }
+
+    #[test]
+    fn compatible_release() {
+        let specifier = specifier!("~= 1.0.0");
+        assert!(specifier.matches(&version!("1.0.0")));
+        assert!(specifier.matches(&version!("1.0.0.post1")));
+        assert!(specifier.matches(&version!("1.0.5a1.post4.dev2")));
+        assert!(!specifier.matches(&version!("1.0.0a0")));
+        assert!(!specifier.matches(&version!("1.0.0.dev0")));
+        assert!(!specifier.matches(&version!("1.1")));
+        assert!(!specifier.matches(&version!("2")));
     }
 }
