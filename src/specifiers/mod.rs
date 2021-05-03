@@ -21,6 +21,7 @@ pub enum ClauseType {
 pub struct Specifier {
     clause: ClauseType,
     version: Version,
+    range: Option<core::ops::Range<Version>>,
 }
 
 impl Specifier {
@@ -91,7 +92,91 @@ impl Specifier {
             ArbitraryEquality => {}
         }
 
-        Ok(Self { clause, version })
+        // Get the upper bound, if there is one
+        let inc = |v: &mut u64| {
+            *v = v.checked_add(1).expect("failed to increment version number");
+        };
+        let range = match clause {
+            WildcardMatching | WildcardExclusion => {
+                let start = {
+                    let mut start = version.public_version().unwrap().clone();
+                    start.dev = Some(0);
+                    start.into()
+                };
+                let end = {
+                    let mut end = version.public_version().unwrap().clone();
+                    if let Some(post) = end.post.as_mut() {
+                        inc(post);
+                    } else if let Some(pre) = end.pre.as_mut() {
+                        use crate::scheme::Pre::*;
+                        match pre {
+                            A(a) => inc(a),
+                            B(b) => inc(b),
+                            Rc(rc) => inc(rc),
+                        }
+                    } else {
+                        inc(end.release.last_mut().unwrap());
+                    }
+                    end.dev = Some(0);
+                    end.into()
+                };
+                Some(core::ops::Range { start, end })
+            }
+            CompatibleRelease => {
+                let start = version.clone();
+                let end = {
+                    let mut end = version.public_version().unwrap().clone();
+                    let last = end.release.last_mut().unwrap();
+                    *last = 0;
+                    inc(end.release.iter_mut().rev().skip(1).next().unwrap());
+                    end.pre = None;
+                    end.post = None;
+                    end.dev = Some(0);
+                    end.into()
+                };
+                Some(core::ops::Range { start, end })
+            }
+            _ => None,
+        };
+
+        Ok(Self { clause, version, range })
+    }
+
+    /// Return `true` if the version matches this specifier, and `false` if it does not.
+    pub fn matches(&self, version: &Version) -> bool {
+        use ClauseType::*;
+        let is_prerelease = |v: &Version| {
+            let v = v.public_version().unwrap();
+            v.pre.is_some() || v.dev.is_some()
+        };
+        let is_post_release = |v: &Version| {
+            v.public_version().unwrap().post.is_some()
+        };
+        let is_same_release = |a: &Version, b: &Version| {
+            let a = a.public_version().unwrap();
+            let b = b.public_version().unwrap();
+            a.epoch == b.epoch && a.release == b.release
+        };
+        match self.clause {
+            ArbitraryEquality => {
+                match (version.is_canonical(), self.version.is_canonical()) {
+                    (true, true) => version.version == self.version.version,
+                    (false, false) => version.version_string == self.version.version_string,
+                    _ => false,
+                }
+            }
+            Matching => version.local_version().unwrap().version == self.version.local_version().unwrap().version,
+            Exclusion => version.local_version().unwrap().version != self.version.local_version().unwrap().version,
+            GreaterEqual => version >= &self.version,
+            LessEqual => version <= &self.version,
+            // reject post-releases of the same version
+            Greater => version > &self.version && (is_post_release(&self.version) || !is_same_release(version, &self.version)),
+            // reject pre-releases of the same version, unless the spec is a pre-release
+            Less => version < &self.version && (is_prerelease(&self.version) || !is_same_release(version, &self.version)),
+            WildcardMatching => self.range.as_ref().unwrap().contains(&version),
+            WildcardExclusion => !self.range.as_ref().unwrap().contains(&version),
+            CompatibleRelease => self.range.as_ref().unwrap().contains(&version),
+        }
     }
 
     /// Returns the type of this specifier.
@@ -163,17 +248,16 @@ impl std::fmt::Display for SpecifierSet {
     }
 }
 
-/*
 #[cfg(test)]
 mod test {
-    use crate::{Specifier, LocalVersion};
+    use crate::{Specifier, Version};
 
     macro_rules! specifier {
         { $s:literal } => { Specifier::parse($s).unwrap() }
     }
 
     macro_rules! version {
-        { $v:literal } => { LocalVersion::parse($v).unwrap() }
+        { $v:literal } => { Version::parse($v).unwrap() }
     }
 
     /// Copied from PEP 440
@@ -240,4 +324,3 @@ mod test {
         assert!(!specifier!("== 1.0a1.*").matches(&version!("1.0b1")));
     }
 }
-*/

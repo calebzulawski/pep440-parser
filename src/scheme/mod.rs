@@ -317,6 +317,15 @@ impl LocalVersion {
     }
 }
 
+impl From<PublicVersion> for LocalVersion {
+    fn from(version: PublicVersion) -> Self {
+        Self {
+            version,
+            label: Label(Vec::new()),
+        }
+    }
+}
+
 impl std::fmt::Display for LocalVersion {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.version)?;
@@ -338,8 +347,8 @@ impl std::str::FromStr for LocalVersion {
 /// Any version, either PEP 440 compliant or not.
 #[derive(Clone, Debug)]
 pub struct Version {
-    version: Option<LocalVersion>,
-    version_string: Option<String>,
+    pub(crate) version: Option<LocalVersion>,
+    pub(crate) version_string: Option<String>,
 }
 
 impl Version {
@@ -390,6 +399,26 @@ impl Version {
     /// Return the local version, or `None` if it is a legacy version.
     pub fn local_version(&self) -> Option<&LocalVersion> {
         self.version.as_ref()
+    }
+
+    /// Return the public version, or `None` if it is a legacy version.
+    pub fn public_version(&self) -> Option<&PublicVersion> {
+        self.version.as_ref().map(|v| &v.version)
+    }
+}
+
+impl From<PublicVersion> for Version {
+    fn from(version: PublicVersion) -> Self {
+        LocalVersion::from(version).into()
+    }
+}
+
+impl From<LocalVersion> for Version {
+    fn from(version: LocalVersion) -> Self {
+        Self {
+            version: Some(version),
+            version_string: None,
+        }
     }
 }
 
