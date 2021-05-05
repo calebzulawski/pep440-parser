@@ -374,6 +374,8 @@
 <span id="371">371</span>
 <span id="372">372</span>
 <span id="373">373</span>
+<span id="374">374</span>
+<span id="375">375</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! Parsing PEP 440 version specifiers.</span>
 
@@ -395,6 +397,7 @@
 }
 
 <span class="doccomment">/// A PEP 440 version specifier.</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Debug</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Specifier</span> {
     <span class="ident">clause</span>: <span class="ident">ClauseType</span>,
     <span class="ident">version</span>: <span class="ident">Version</span>,
@@ -607,6 +610,7 @@
 }
 
 <span class="doccomment">/// A set of comma-separated specifiers.</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Debug</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">SpecifierSet</span>(<span class="kw">pub</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Specifier</span><span class="op">&gt;</span>);
 
 <span class="kw">impl</span> <span class="ident">SpecifierSet</span> {
