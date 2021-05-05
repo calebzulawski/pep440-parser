@@ -18,6 +18,7 @@ pub enum ClauseType {
 }
 
 /// A PEP 440 version specifier.
+#[derive(Clone, Debug)]
 pub struct Specifier {
     clause: ClauseType,
     version: Version,
@@ -230,6 +231,7 @@ impl std::fmt::Display for Specifier {
 }
 
 /// A set of comma-separated specifiers.
+#[derive(Clone, Debug)]
 pub struct SpecifierSet(pub Vec<Specifier>);
 
 impl SpecifierSet {
