@@ -185,6 +185,20 @@ pub enum LabelComponent {
     Numeric(u64),
 }
 
+impl LabelComponent {
+    /// Returns the local version label component only if the string contains ASCII alphanumeric
+    /// characters.
+    ///
+    /// Otherwise, returns the original string.
+    pub fn new(value: String) -> Result<Self, String> {
+        Ok(if let Ok(num) = value.parse() {
+            Self::Numeric(num)
+        } else {
+            Self::Alphanumeric(Alphanumeric::new(value)?)
+        })
+    }
+}
+
 impl std::fmt::Display for LabelComponent {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {

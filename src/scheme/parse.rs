@@ -1,12 +1,10 @@
-use super::{
-    Alphanumeric, Error, Label, LabelComponent, LocalVersion, Pre, PublicVersion, Release,
-};
+use super::{Error, Label, LabelComponent, LocalVersion, Pre, PublicVersion, Release};
 use nom::{
     branch::alt,
     bytes::complete::tag_no_case,
     character::complete::{alphanumeric1, char, digit1, one_of, satisfy},
     combinator::{all_consuming, map_res, opt},
-    multi::{many0_count, separated_list0, separated_list1},
+    multi::{many0_count, separated_list1},
     sequence::{delimited, preceded, terminated, tuple},
     Finish, IResult, Parser,
 };
@@ -116,13 +114,9 @@ fn dev(s: &str) -> IResult<&str, (bool, Option<u64>)> {
 fn label(s: &str) -> IResult<&str, Label> {
     opt(preceded(
         char('+'),
-        separated_list0(
+        separated_list1(
             one_of(".-_"),
-            alt((
-                digit.map(LabelComponent::Numeric),
-                alphanumeric1
-                    .map(|s: &str| LabelComponent::Alphanumeric(Alphanumeric(s.to_string()))),
-            )),
+            alphanumeric1.map(|s: &str| LabelComponent::new(s.to_string()).unwrap()),
         ),
     ))
     .map(|x| Label(x.unwrap_or_else(Vec::new)))
